@@ -1,4 +1,4 @@
-elixir 1.15.7-otp-26
-erlang 26.0
-dprint 0.36.0
-nodejs lts
+elixir 1.18.4-otp-27
+erlang 27.3
+dprint 0.50.0
+nodejs 20.19.2

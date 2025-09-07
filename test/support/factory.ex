@@ -103,7 +103,8 @@ defmodule Keila.Factory do
     %Keila.Contacts.Contact{
       email: "contact-#{get_counter_value()}@example.org",
       first_name: "First-#{get_counter_value()}",
-      last_name: "Last-#{get_counter_value()}"
+      last_name: "Last-#{get_counter_value()}",
+      external_id: Ecto.UUID.generate()
     }
   end
 
@@ -132,6 +133,17 @@ defmodule Keila.Factory do
     }
   end
 
+  defp do_build(:file) do
+    %Keila.Files.File{
+      uuid: Ecto.UUID.generate(),
+      filename: "test/keila/files/keila.jpg",
+      type: "image/jpeg",
+      size: 1234,
+      adapter: "local",
+      project_id: build(:project).id
+    }
+  end
+
   @doc """
   Builds a struct with optional attributes
   """
@@ -150,7 +162,7 @@ defmodule Keila.Factory do
   Build and persists a struct with optional attributes
   """
   def insert!(name, attributes \\ []) do
-    name |> build(attributes) |> Repo.insert!()
+    name |> build(attributes) |> Repo.insert!(returning: true)
   end
 
   def insert_n!(name, n, attribute_fn \\ fn _n -> [] end) do

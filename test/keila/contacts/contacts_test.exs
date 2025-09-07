@@ -33,6 +33,25 @@ defmodule Keila.ContactsTest do
   end
 
   @tag :contacts
+  test "first_name and last_name are limited to 50 characters", %{project: project} do
+    assert {:error, _changeset} =
+             Contacts.create_contact(
+               project.id,
+               params(:contact,
+                 first_name: "This is not a real first name it's actually spam!!!"
+               )
+             )
+
+    assert {:error, _changeset} =
+             Contacts.create_contact(
+               project.id,
+               params(:contact,
+                 last_name: "This is not actually a genuine last name it's spam!!!"
+               )
+             )
+  end
+
+  @tag :contacts
   test "Create contact with dynamic cast/validation options from form", %{project: project} do
     params = %{email: email, first_name: _} = build(:contact) |> Map.from_struct()
 
@@ -90,6 +109,22 @@ defmodule Keila.ContactsTest do
     assert {:ok, updated_contact = %Contact{}} = Contacts.update_contact(contact.id, params)
     assert updated_contact.email == params["email"]
     refute updated_contact.double_opt_in_at
+  end
+
+  @tag :contacts
+  test "Get project contact by ID, email, and external ID", %{project: project} do
+    contact1 = insert!(:contact, %{project_id: project.id})
+    contact2 = insert!(:contact, %{project_id: project.id})
+    contact3 = insert!(:contact, %{project_id: project.id, external_id: "ext"})
+
+    assert contact1 == Contacts.get_project_contact(contact1.project_id, contact1.id)
+    assert contact2 == Contacts.get_project_contact_by_email(contact2.project_id, contact2.email)
+
+    assert contact3 ==
+             Contacts.get_project_contact_by_external_id(
+               contact3.project_id,
+               contact3.external_id
+             )
   end
 
   @tag :contacts
@@ -244,6 +279,75 @@ defmodule Keila.ContactsTest do
     refute Repo.get_by(Contacts.Contact, email: "unsubscribed@example.com")
     refute Repo.get_by(Contacts.Contact, email: "unreachable@example.com")
     refute Repo.get_by(Contacts.Contact, email: "empty@example.com")
+  end
+
+  @tag :contacts
+  test "Import RFC 4180 CSV with external IDs and on_conflict: :ignore", %{project: project} do
+    assert :ok ==
+             Contacts.import_csv(
+               project.id,
+               "test/keila/contacts/import_external_ids.csv",
+               on_conflict: :ignore
+             )
+
+    contacts = Contacts.get_project_contacts(project.id)
+
+    expected = [
+      %{email: "foo@example.com", external_id: nil},
+      %{email: "foo2@example.com", external_id: "1"},
+      %{email: "foo3@example.com", external_id: "3"}
+    ]
+
+    for %{email: email, external_id: external_id} <- expected do
+      assert Enum.find(contacts, fn
+               %{email: ^email, external_id: ^external_id} -> true
+               _ -> false
+             end)
+    end
+
+    assert length(contacts) == length(expected)
+  end
+
+  @tag :contacts
+  test "Import CSV with external IDs and on_conflict: :replace", %{project: project} do
+    assert :ok ==
+             Contacts.import_csv(
+               project.id,
+               "test/keila/contacts/import_external_ids.csv",
+               on_conflict: :replace
+             )
+
+    contacts = Contacts.get_project_contacts(project.id)
+
+    expected = [
+      %{email: "foo2@example.com", external_id: "1"},
+      %{email: "foo3@example.com", external_id: "3"}
+    ]
+
+    for %{email: email, external_id: external_id} <- expected do
+      assert Enum.find(contacts, fn
+               %{email: ^email, external_id: ^external_id} -> true
+               _ -> false
+             end)
+    end
+
+    assert length(contacts) == length(expected)
+  end
+
+  @tag :contacts
+  test "Gracefully handle duplicates with external IDs and on_conflict: :replace", %{
+    project: project
+  } do
+    assert {:error, message} =
+             Contacts.import_csv(
+               project.id,
+               "test/keila/contacts/import_external_ids_duplicate.csv",
+               on_conflict: :replace
+             )
+
+    assert message =~ "duplicate entry"
+
+    assert Enum.empty?(Contacts.get_project_contacts(project.id))
   end
 
   @tag :contacts

@@ -1,12 +1,16 @@
 defmodule Keila.AccountsTest.Credits do
   use Keila.DataCase, async: false
   alias Keila.Accounts
+  require Keila
 
   setup do
     root_group = insert!(:group)
     account = insert!(:account, group: root_group)
     user = insert!(:user)
     Accounts.set_user_account(user.id, account.id)
+
+    child_group = insert!(:group, parent: root_group)
+    child_account = insert!(:account, group: child_group, parent_id: account.id)
 
     credits_enabled_before? =
       Application.get_env(:keila, Keila.Accounts, [])
@@ -15,7 +19,7 @@ defmodule Keila.AccountsTest.Credits do
     set_credits_enabled(true)
     on_exit(fn -> set_credits_enabled(credits_enabled_before?) end)
 
-    %{account: account, user: user}
+    %{account: account, user: user, child_account: child_account}
   end
 
   @tag :accounts
@@ -53,6 +57,36 @@ defmodule Keila.AccountsTest.Credits do
   end
 
   @tag :accounts
+  test "account with parent account has credits of parent account", %{
+    account: account,
+    child_account: child_account
+  } do
+    Accounts.add_credits(account.id, 10, tomorrow())
+    assert Accounts.get_available_credits(account.id) == 10
+    assert Accounts.get_available_credits(child_account.id) == 10
+    assert :ok = Accounts.consume_credits(child_account.id, 10)
+
+    assert Accounts.get_available_credits(account.id) == 0
+    assert Accounts.get_available_credits(child_account.id) == 0
+  end
+
+  @tag :accounts
+  test "additional credits for child account can exist independently of parent account", %{
+    account: account,
+    child_account: child_account
+  } do
+    Accounts.add_credits(account.id, 10, tomorrow())
+    Accounts.add_credits(child_account.id, 10, tomorrow())
+
+    assert Accounts.get_available_credits(account.id) == 10
+    assert Accounts.get_available_credits(child_account.id) == 20
+    assert :ok = Accounts.consume_credits(child_account.id, 20)
+
+    assert Accounts.get_available_credits(account.id) == 0
+    assert Accounts.get_available_credits(child_account.id) == 0
+  end
+
+  @tag :accounts
   @tag :mailings
   @tag :contacts
   test "delivering campaigns requires and consumes credits", %{user: user, account: account} do
@@ -60,6 +94,10 @@ defmodule Keila.AccountsTest.Credits do
     :ok = Keila.Contacts.import_csv(project.id, "test/keila/contacts/import_rfc_4180.csv")
     sender = insert!(:mailings_sender, project_id: project.id)
     campaign = insert!(:mailings_campaign, project_id: project.id, sender_id: sender.id)
+
+    Keila.if_cloud do
+      KeilaCloud.Accounts.update_account_status(account.id, :active)
+    end
 
     assert {:error, :insufficient_credits} = Keila.Mailings.deliver_campaign(campaign.id)
 
@@ -74,7 +112,8 @@ defmodule Keila.AccountsTest.Credits do
   @tag :mailings
   @tag :contacts
   test "A campaign that failed to deliver with insufficient credits is un-scheduled", %{
-    user: user
+    user: user,
+    account: account
   } do
     {:ok, project} = Keila.Projects.create_project(user.id, params(:project))
     :ok = Keila.Contacts.import_csv(project.id, "test/keila/contacts/import_rfc_4180.csv")
@@ -87,6 +126,10 @@ defmodule Keila.AccountsTest.Credits do
         sender_id: sender.id,
         scheduled_for: now
       )
+
+    Keila.if_cloud do
+      KeilaCloud.Accounts.update_account_status(account.id, :active)
+    end
 
     assert {:error, :insufficient_credits} = Keila.Mailings.deliver_campaign(campaign.id)
     assert %{scheduled_for: nil} = Keila.Mailings.get_campaign(campaign.id)

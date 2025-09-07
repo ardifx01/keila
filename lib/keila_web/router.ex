@@ -1,4 +1,5 @@
 defmodule KeilaWeb.Router do
+  require Keila
   use KeilaWeb, :router
 
   pipeline :browser do
@@ -11,6 +12,7 @@ defmodule KeilaWeb.Router do
     plug KeilaWeb.Meta.Plug
     plug KeilaWeb.AuthSession.Plug
     plug KeilaWeb.PutLocalePlug
+    plug KeilaWeb.InstanceInfoPlug
   end
 
   # Non-authenticated Routes
@@ -24,7 +26,7 @@ defmodule KeilaWeb.Router do
   scope "/" do
     pipe_through :browser
 
-    get "/api", OpenApiSpex.Plug.SwaggerUI, path: "/api/v1/openapi"
+    get "/api", KeilaWeb.ApiDocsController, :show
   end
 
   # Unauthenticated Routes
@@ -64,6 +66,10 @@ defmodule KeilaWeb.Router do
     put "/account", AccountController, :post_edit
     get "/account/await-subscription", AccountController, :await_subscription
 
+    Keila.if_cloud do
+      get "/account/onboarding", CloudAccountController, :onboarding
+    end
+
     get "/", ProjectController, :index
     get "/projects/new", ProjectController, :new
     post "/projects/new", ProjectController, :post_new
@@ -76,8 +82,15 @@ defmodule KeilaWeb.Router do
     get "/admin/users/:id/credits", UserAdminController, :show_credits
     post "/admin/users/:id/credits", UserAdminController, :create_credits
 
+    Keila.if_cloud do
+      get "/admin/users/:id/status", CloudAdminController, :show_user_account_status
+      post "/admin/users/:id/status", CloudAdminController, :update_user_account_status
+    end
+
     resources "/admin/shared-senders", SharedSenderAdminController
     get "/admin/shared-senders/:id/delete", SharedSenderAdminController, :delete_confirmation
+
+    get "/admin/instance", InstanceAdminController, :show
   end
 
   # Authenticated Routes within a Project context
@@ -131,6 +144,9 @@ defmodule KeilaWeb.Router do
     post "/projects/:project_id/campaigns/new", CampaignController, :post_new
     get "/projects/:project_id/campaigns/:id", CampaignController, :edit
     get "/projects/:project_id/campaigns/:id/stats", CampaignController, :stats
+    get "/projects/:project_id/campaigns/:id/view", CampaignController, :view
+    get "/projects/:project_id/campaigns/:id/share", CampaignController, :share
+    post "/projects/:project_id/campaigns/:id/share", CampaignController, :post_share
     get "/projects/:project_id/campaigns/:id/clone", CampaignController, :clone
     post "/projects/:project_id/campaigns/:id/clone", CampaignController, :post_clone
     delete "/projects/:project_id/campaigns", CampaignController, :delete
@@ -166,6 +182,8 @@ defmodule KeilaWeb.Router do
 
     get "/r/:encoded_url/:recipient_id/:hmac", TrackingController, :track_open
     get "/c/:encoded_url/:recipient_id/:link_id/:hmac", TrackingController, :track_click
+
+    get "/archive/:id", PublicCampaignController, :show
 
     # DEPRECATED: These routes will be removed in a future Keila release
     get "/unsubscribe/:project_id/:contact_id", PublicFormController, :unsubscribe
@@ -203,6 +221,9 @@ defmodule KeilaWeb.Router do
 
     post "/campaigns/:id/actions/send", ApiCampaignController, :deliver
     post "/campaigns/:id/actions/schedule", ApiCampaignController, :schedule
+
+    resources "/forms", ApiFormController, only: [:index, :show, :create, :update, :delete]
+    post "/forms/:id/actions/submit", ApiFormController, :submit
 
     resources "/segments", ApiSegmentController, only: [:index, :show, :create, :update, :delete]
 

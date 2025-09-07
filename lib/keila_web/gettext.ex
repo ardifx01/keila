@@ -20,7 +20,7 @@ defmodule KeilaWeb.Gettext do
 
   See the [Gettext Docs](https://hexdocs.pm/gettext) for detailed usage.
   """
-  use Gettext, otp_app: :keila
+  use Gettext, otp_app: :keila, default_locale: "en", priv: "priv/gettext"
 
   @doc """
   Convenience macro for translating Markdown strings. Returns `{:safe, html}`.
@@ -35,10 +35,24 @@ defmodule KeilaWeb.Gettext do
     end
   end
 
+  @doc """
+  Convenience macro for translating Markdown strings while specifying a domain.
+
+  Returns `{:safe, html}`.
+  """
+  defmacro dgettext_md(domain, msgid, bindings \\ Macro.escape(%{})) do
+    quote do
+      unquote(__MODULE__).dpgettext(unquote(domain), nil, unquote(msgid), unquote(bindings))
+      |> Earmark.as_html!()
+      |> then(fn html -> {:safe, html} end)
+    end
+  end
+
   def available_locales() do
     [
       {"English", "en"},
-      {"Deutsch", "de"}
+      {"Deutsch", "de"},
+      {"Français", "fr"}
     ]
   end
 end

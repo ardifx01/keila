@@ -1,7 +1,12 @@
-FROM elixir:1.15-alpine as build
+FROM elixir:1.15-alpine AS build
+
+ARG WITH_EXTRA=0
+ARG KEILA_CLOUD=0
+ARG KEILA_CLOUD_LICENSE
+
 ENV MIX_ENV=prod
 
-RUN apk add git npm build-base
+RUN apk add git npm build-base cmake
 
 COPY mix.exs mix.lock ./
 COPY config .
@@ -12,7 +17,7 @@ RUN mix local.hex --force && \
 
 COPY assets/package.json assets/package-lock.json ./assets/
 RUN npm ci --prefix ./assets
-    
+
 COPY . .
 RUN mix deps.clean mime --build && \
     mix assets.deploy && \

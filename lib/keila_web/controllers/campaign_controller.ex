@@ -113,6 +113,7 @@ defmodule KeilaWeb.CampaignController do
       senders = Mailings.get_project_senders(project.id)
       templates = Templates.get_project_templates(project.id)
       segments = Contacts.get_project_segments(project.id)
+      account = Keila.Accounts.get_user_account(conn.assigns.current_user.id)
 
       live_render(conn, KeilaWeb.CampaignEditLive,
         session: %{
@@ -121,6 +122,7 @@ defmodule KeilaWeb.CampaignController do
           "senders" => senders,
           "templates" => templates,
           "segments" => segments,
+          "account" => account,
           "locale" => Gettext.get_locale()
         }
       )
@@ -143,6 +145,42 @@ defmodule KeilaWeb.CampaignController do
         "locale" => Gettext.get_locale()
       }
     )
+  end
+
+  def view(conn, _params) do
+    project = current_project(conn)
+    campaign = conn.assigns.campaign
+    email = Keila.Mailings.Builder.build_preview(campaign)
+    preview = email.html_body || KeilaWeb.CampaignView.plain_text_preview(email.text_body)
+
+    render(conn, "view.html", %{
+      current_project: project,
+      campaign: campaign,
+      preview: preview
+    })
+  end
+
+  def share(conn, _params) do
+    project = current_project(conn)
+    campaign = conn.assigns.campaign
+
+    render(conn, "share.html", %{
+      current_project: project,
+      campaign: campaign
+    })
+  end
+
+  def post_share(conn, %{"enable" => raw_enable?}) do
+    project = current_project(conn)
+
+    enable? = String.to_existing_atom(raw_enable?)
+    campaign_id = conn.assigns.campaign.id
+    campaign = Mailings.enable_public_link!(campaign_id, enable?)
+
+    render(conn, "share.html", %{
+      current_project: project,
+      campaign: campaign
+    })
   end
 
   @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()

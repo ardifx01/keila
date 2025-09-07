@@ -4,7 +4,7 @@ defmodule Keila.MixProject do
   def project do
     [
       app: :keila,
-      version: "0.15.0",
+      version: "0.17.1",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: [:phoenix] ++ Mix.compilers(),
@@ -28,8 +28,17 @@ defmodule Keila.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  defp elixirc_paths(env \\ nil)
+
+  defp elixirc_paths(:test), do: ["test/support" | elixirc_paths()]
+
+  defp elixirc_paths(_env) do
+    if System.get_env("WITH_EXTRA") in ["1", "true", "TRUE"] do
+      ["extra", "lib"]
+    else
+      ["lib"]
+    end
+  end
 
   # Specifies settings for ex_doc
   defp docs do
@@ -51,15 +60,16 @@ defmodule Keila.MixProject do
       {:phoenix_ecto, "~> 4.1"},
       {:ecto, "~> 3.7"},
       {:ecto_sql, "~> 3.7"},
-      {:postgrex, ">= 0.0.0"},
-      {:floki, "~> 0.32.0"},
+      {:postgrex, "~> 0.20.0"},
+      {:floki, "~> 0.37.0"},
+      {:fast_html, "~> 2.0"},
       {:phoenix_html, "~> 3.0"},
       {:phoenix_live_view, "~> 0.17.11"},
       {:phoenix_live_reload, "~> 1.3", only: :dev},
       {:phoenix_live_dashboard, "~> 0.5"},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 0.5"},
-      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
+      {:esbuild, "~> 0.9", runtime: Mix.env() == :dev},
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.0"},
       {:plug_cowboy, "~> 2.0"},
@@ -67,7 +77,7 @@ defmodule Keila.MixProject do
       {:swoosh, "~> 1.3"},
       {:gen_smtp, "~> 1.2"},
       {:hackney, "~> 1.9"},
-      {:hashids, "~> 2.0"},
+      {:hashids, "~> 2.1"},
       {:argon2_elixir, "~> 2.3"},
       {:httpoison, "~> 1.8"},
       {:nimble_csv, "~> 1.1"},
@@ -79,10 +89,12 @@ defmodule Keila.MixProject do
       {:sweet_xml, "~> 0.6"},
       {:ex_aws_ses, "~> 2.4.1"},
       {:php_serializer, "~> 2.0"},
-      {:open_api_spex, "~> 3.11"},
+      {:open_api_spex, "~> 3.21"},
       {:ex_rated, "~> 2.1"},
       {:tls_certificate_check, "~> 1.20"},
-      {:mjml, "~> 4.0"}
+      {:mjml, "~> 4.0"},
+      {:ex_cldr, "~> 2.42"},
+      {:ex_cldr_territories, "~> 2.9"}
     ]
   end
 

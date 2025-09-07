@@ -7,6 +7,9 @@ defmodule Keila.Templates.HybridTemplate do
   alias Keila.Templates.Css
   import KeilaWeb.Gettext
 
+  @external_resource "priv/email_templates/hybrid/hybrid.html.liquid"
+  @external_resource "priv/email_templates/hybrid/default.css"
+
   @html_body File.read!("priv/email_templates/hybrid/hybrid.html.liquid") |> Solid.parse!()
   @styles File.read!("priv/email_templates/hybrid/default.css") |> Css.parse!()
 
@@ -102,6 +105,13 @@ defmodule Keila.Templates.HybridTemplate do
   Powered by [Keila - OpenSource Newsletters](https://www.keila.io/)
   """
 
+  @text_signature """
+  Unsubscribe:
+  {{ unsubscribe_link }}
+
+  This newsletter is powered by Keila: https://www.keila.io
+  """
+
   @spec styles() :: Keila.Templates.Css.t()
   def styles() do
     @styles
@@ -129,5 +139,9 @@ defmodule Keila.Templates.HybridTemplate do
   @spec signature() :: String.t()
   def signature() do
     @signature
+  end
+
+  def text_signature() do
+    @text_signature
   end
 end

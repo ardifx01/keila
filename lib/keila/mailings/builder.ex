@@ -54,6 +54,7 @@ defmodule Keila.Mailings.Builder do
         process_assigns(Map.take(campaign, [:data, :subject, :preview_text]))
       )
       |> Map.put("unsubscribe_link", unsubscribe_link)
+      |> Map.put("assets_url", Routes.static_url(KeilaWeb.Endpoint, "/"))
 
     Email.new()
     |> put_subject(campaign.subject, assigns)
@@ -64,6 +65,28 @@ defmodule Keila.Mailings.Builder do
     |> put_unsubscribe_header(unsubscribe_link)
     |> maybe_put_precedence_header()
     |> maybe_put_tracking(campaign, recipient)
+  end
+
+  @default_contact %Keila.Contacts.Contact{
+    id: "c_id",
+    email: "keila@example.com",
+    data: %{}
+  }
+
+  @default_sender %Keila.Mailings.Sender{
+    from_name: "",
+    from_email: "keila@example.com"
+  }
+
+  @doc """
+  Builds a preview email for the given campaign and contact.
+
+  Injects a default sender and contact. The contact can be overridden by passing it as the second argument.
+  """
+  @spec build_preview(campaign :: Campaign.t(), contact :: Contact.t()) :: Email.t()
+  def build_preview(campaign, contact \\ @default_contact) do
+    %{campaign | sender: @default_sender}
+    |> build(contact)
   end
 
   defp put_template_assigns(assigns, %Template{assigns: template_assigns = %{}}),
@@ -144,7 +167,7 @@ defmodule Keila.Mailings.Builder do
   defp put_body(email, campaign = %{settings: %{type: :text}}, assigns) do
     body_with_signature =
       (campaign.text_body || "") <>
-        "\n\n--  \n" <> (assigns["signature"] || HybridTemplate.signature())
+        "\n\n--  \n" <> (assigns["signature"] || HybridTemplate.text_signature())
 
     case render_liquid(body_with_signature, assigns) do
       {:ok, text_body} ->

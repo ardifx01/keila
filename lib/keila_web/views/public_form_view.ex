@@ -7,6 +7,28 @@ defmodule KeilaWeb.PublicFormView do
 
   @form_classes "contact-form container bg-white rounded py-4 md:py-8 flex flex-col gap-4"
 
+  # defp keila_form(form, changeset \\ Ecto.Changeset.change(%Contact{}), mode, content) do
+  #   assigns = %{
+  #     form: form,
+  #     class_attr: form_class_attr(form),
+  #     style_attr: form_style_attr(form),
+  #     csrf_token: form_csrf_token(form, mode)
+  #   }
+
+  #   ~H"""
+  #   <.form for={@form} class class={@class_attr} style={@style_attr} csrf_token={@csrf_token}>
+  #     <%= content %>
+  #   </.form>
+  #   """
+  # end
+
+  # defp form_class_attr(_form) do
+  #   @form_classes
+  # end
+
+  # defp form_style_attr(form) do
+  #   build_form_styles(form)
+  # end
   defp input_styles(form) do
     build_styles(%{
       "background-color" => form.settings.input_bg_color,
@@ -14,6 +36,12 @@ defmodule KeilaWeb.PublicFormView do
       "border-color" => form.settings.input_border_color
     })
   end
+
+  # def form_csrf_token(form, mode) do
+  #   csrf_disabled? = mode == :embed or form.settings.csrf_disabled
+
+  #   if csrf_disabled?, do: false, else: Phoenix.Controller.get_csrf_token()
+  # end
 
   def render_form(form, changeset \\ Ecto.Changeset.change(%Contact{}), mode) do
     form_opts =
@@ -30,6 +58,7 @@ defmodule KeilaWeb.PublicFormView do
           render_h1(form),
           render_intro(form),
           render_fields(form, f),
+          render_honeypot(form),
           render_captcha(form, mode, f),
           render_submit(form, f),
           render_fine_print(form)
@@ -71,6 +100,19 @@ defmodule KeilaWeb.PublicFormView do
     else
       []
     end
+  end
+
+  @honeypot_field_name "h[url]"
+  defp render_honeypot(_form) do
+    [
+      tag(:input,
+        aria_hidden: "true",
+        name: @honeypot_field_name,
+        style: "display: none",
+        autocomplete: "off",
+        novalidate: true
+      )
+    ]
   end
 
   defp render_captcha(form, mode, f) do
@@ -196,7 +238,7 @@ defmodule KeilaWeb.PublicFormView do
         [
           checkbox(f, field, style: "mr-4", name: name, id: id),
           " ",
-          field_settings.label,
+          field_settings.label || "",
           if(field_settings.required, do: "", else: [" ", gettext("(optional)")])
         ]
       end
@@ -236,7 +278,7 @@ defmodule KeilaWeb.PublicFormView do
     [
       content_tag(:label, field_settings.label),
       with_validation(f, field) do
-        content_tag(:div, class: "flex gap-4") do
+        content_tag(:div, class: "flex gap-4 flex-wrap") do
           for %{label: label, value: value} <- field_settings.allowed_values do
             checked? = value in values
 
@@ -249,7 +291,7 @@ defmodule KeilaWeb.PublicFormView do
                   checked: checked?,
                   class: "mr-1"
                 ),
-                label
+                label || ""
               ]
             end
           end
